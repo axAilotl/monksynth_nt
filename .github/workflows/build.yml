@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -42,7 +42,7 @@ jobs:
             libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libxcb-util0-dev
 
       - name: Cache VST3 SDK
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: cpp/build/_deps
           key: vst3sdk-v3.8.0_build_66-${{ runner.os }}
@@ -109,14 +109,14 @@ jobs:
           zip -r "$GITHUB_WORKSPACE/MonkSynth-AU-macOS.zip" "MonkSynth-au.component"
 
       - name: Upload VST3
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}.zip
 
       - name: Upload AU
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MonkSynth-AU-macOS
           path: MonkSynth-AU-macOS.zip
@@ -130,7 +130,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 

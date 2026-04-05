@@ -82,6 +82,7 @@ endif()
 
 # --- macOS Audio Unit wrapper ---
 if(APPLE AND SMTG_ENABLE_AUV2_BUILDS)
+    list(APPEND CMAKE_MODULE_PATH "${vst3sdk_SOURCE_DIR}/cmake/modules")
     include(SMTG_AddVST3AuV2)
     # AUv2 type codes: 'aumu' = instrument, 'aufx' = effect
     # 4-char codes: subtype 'MkSy', manufacturer 'ODLC'

@@ -1,0 +1,164 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            cmake_flags: ""
+            artifact_name: MonkSynth-VST3-Windows
+          - os: macos-latest
+            name: macOS
+            cmake_flags: >-
+              -DSMTG_ENABLE_AUV2_BUILDS=ON
+              -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            artifact_name: MonkSynth-VST3-macOS
+          - os: ubuntu-latest
+            name: Linux
+            cmake_flags: "-DCMAKE_BUILD_TYPE=Release"
+            artifact_name: MonkSynth-VST3-Linux
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxcb1-dev libxcb-util-dev \
+            libxcb-cursor-dev libxcb-keysyms1-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
+            libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libxcb-util0-dev
+
+      - name: Cache VST3 SDK
+        uses: actions/cache@v4
+        with:
+          path: cpp/build/_deps
+          key: vst3sdk-v3.8.0_build_66-${{ runner.os }}
+
+      - name: Extract version label
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+            LABEL="${TAG#*-}"
+            if [ "$LABEL" = "$TAG" ]; then LABEL="release"; fi
+          else
+            LABEL="dev"
+          fi
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+          echo "Version label: $LABEL"
+
+      - name: Configure
+        working-directory: cpp
+        run: cmake -B build ${{ matrix.cmake_flags }} -DMONKSYNTH_VERSION_LABEL="${{ steps.version.outputs.label }}"
+
+      - name: Build VST3
+        working-directory: cpp
+        run: cmake --build build --config Release --target MonkSynth
+
+      - name: Build AudioUnit
+        if: runner.os == 'macOS'
+        working-directory: cpp
+        run: cmake --build build --config Release --target MonkSynth-au
+
+      - name: Find VST3 bundle
+        id: find_vst3
+        shell: bash
+        run: |
+          VST3=$(find cpp/build -name "MonkSynth.vst3" -type d | head -1)
+          echo "path=$VST3" >> "$GITHUB_OUTPUT"
+          echo "Found VST3 at: $VST3"
+
+      - name: Find AU bundle
+        if: runner.os == 'macOS'
+        id: find_au
+        shell: bash
+        run: |
+          AU=$(find cpp/build -name "MonkSynth-au.component" -type d | head -1)
+          echo "path=$AU" >> "$GITHUB_OUTPUT"
+          echo "Found AU at: $AU"
+
+      - name: Package VST3
+        shell: bash
+        run: |
+          cd "$(dirname "${{ steps.find_vst3.outputs.path }}")"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            7z a -tzip "$GITHUB_WORKSPACE/${{ matrix.artifact_name }}.zip" "MonkSynth.vst3"
+          else
+            zip -r "$GITHUB_WORKSPACE/${{ matrix.artifact_name }}.zip" "MonkSynth.vst3"
+          fi
+
+      - name: Package AU
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd "$(dirname "${{ steps.find_au.outputs.path }}")"
+          zip -r "$GITHUB_WORKSPACE/MonkSynth-AU-macOS.zip" "MonkSynth-au.component"
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.zip
+
+      - name: Upload AU
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonkSynth-AU-macOS
+          path: MonkSynth-AU-macOS.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          name: "MonkSynth ${{ github.ref_name }} (Beta)"
+          body: |
+            ## MonkSynth ${{ github.ref_name }} Beta Release
+
+            Pre-release beta build for testing. Please report issues!
+
+            ### Installation
+
+            - **Windows (VST3):** Extract and copy `MonkSynth.vst3` to `C:\Program Files\Common Files\VST3\`
+            - **macOS (VST3):** Extract and copy to `~/Library/Audio/Plug-Ins/VST3/`
+            - **macOS (AU):** Extract and copy to `~/Library/Audio/Plug-Ins/Components/`
+            - **Linux (VST3):** Extract and copy to `~/.vst3/`
+
+            ### Notes
+            - macOS build is Universal (arm64 + x86_64)
+            - macOS: unsigned beta — right-click to open, or run `xattr -cr MonkSynth.vst3`
+            - Requires a DAW with VST3 support (or AU on macOS)
+          files: |
+            artifacts/MonkSynth-VST3-Windows/*.zip
+            artifacts/MonkSynth-VST3-macOS/*.zip
+            artifacts/MonkSynth-AU-macOS/*.zip
+            artifacts/MonkSynth-VST3-Linux/*.zip

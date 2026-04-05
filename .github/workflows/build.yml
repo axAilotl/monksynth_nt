@@ -18,7 +18,7 @@ jobs:
             artifact_name: MonkSynth-VST3-Windows
           - os: macos-latest
             name: macOS
-            cmake_flags: '-G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSMTG_COREAUDIO_SDK_PATH=/tmp/CoreAudioSDK'
+            cmake_flags: '-G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSMTG_AUDIOUNIT_SDK_PATH=/tmp/AudioUnitSDK-AudioUnitSDK-1.4.0'
             artifact_name: MonkSynth-VST3-macOS
           - os: ubuntu-latest
             name: Linux
@@ -41,12 +41,11 @@ jobs:
             libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
             libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libxcb-util0-dev
 
-      - name: Install CoreAudio SDK (macOS)
+      - name: Install AudioUnit SDK (macOS)
         if: runner.os == 'macOS'
         run: |
-          curl -sL https://github.com/nickvido/CoreAudioUtilityClasses/archive/refs/heads/master.tar.gz -o /tmp/coreaudio.tar.gz
-          mkdir -p /tmp/CoreAudioSDK
-          tar xzf /tmp/coreaudio.tar.gz -C /tmp/CoreAudioSDK --strip-components=1
+          curl -sL https://github.com/apple/AudioUnitSDK/archive/refs/tags/AudioUnitSDK-1.4.0.tar.gz -o /tmp/ausdk.tar.gz
+          tar xzf /tmp/ausdk.tar.gz -C /tmp
 
       - name: Cache VST3 SDK
         uses: actions/cache@v5

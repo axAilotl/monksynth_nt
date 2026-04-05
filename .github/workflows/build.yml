@@ -12,18 +12,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            name: Windows
-            cmake_flags: ""
-            artifact_name: MonkSynth-VST3-Windows
+          # - os: windows-latest
+          #   name: Windows
+          #   cmake_flags: ""
+          #   artifact_name: MonkSynth-VST3-Windows
           - os: macos-latest
             name: macOS
-            cmake_flags: '-G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSMTG_AUDIOUNIT_SDK_PATH=/tmp/AudioUnitSDK-AudioUnitSDK-1.4.0'
+            cmake_flags: '-G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSMTG_AUDIOUNIT_SDK_PATH=/tmp/AudioUnitSDK-AudioUnitSDK-1.1.0'
             artifact_name: MonkSynth-VST3-macOS
-          - os: ubuntu-latest
-            name: Linux
-            cmake_flags: "-DCMAKE_BUILD_TYPE=Release"
-            artifact_name: MonkSynth-VST3-Linux
+          # - os: ubuntu-latest
+          #   name: Linux
+          #   cmake_flags: "-DCMAKE_BUILD_TYPE=Release"
+          #   artifact_name: MonkSynth-VST3-Linux
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.name }})
@@ -44,7 +44,7 @@ jobs:
       - name: Install AudioUnit SDK (macOS)
         if: runner.os == 'macOS'
         run: |
-          curl -sL https://github.com/apple/AudioUnitSDK/archive/refs/tags/AudioUnitSDK-1.4.0.tar.gz -o /tmp/ausdk.tar.gz
+          curl -sL https://github.com/apple/AudioUnitSDK/archive/refs/tags/AudioUnitSDK-1.1.0.tar.gz -o /tmp/ausdk.tar.gz
           tar xzf /tmp/ausdk.tar.gz -C /tmp
 
       - name: Cache VST3 SDK

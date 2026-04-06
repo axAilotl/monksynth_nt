@@ -99,17 +99,7 @@ jobs:
         working-directory: cpp
         shell: bash
         run: |
-          SIGNING_FLAGS=()
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            SIGNING_FLAGS=(
-              "-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=Developer ID Application"
-              "-DCMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }}"
-              "-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_STYLE=Manual"
-              "-DCMAKE_XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME=YES"
-              "-DCMAKE_XCODE_ATTRIBUTE_OTHER_CODE_SIGN_FLAGS=--timestamp"
-            )
-          fi
-          cmake -B build ${{ matrix.cmake_flags }} "${SIGNING_FLAGS[@]}" -DMONKSYNTH_VERSION_LABEL="${{ steps.version.outputs.label }}"
+          cmake -B build ${{ matrix.cmake_flags }} -DMONKSYNTH_VERSION_LABEL="${{ steps.version.outputs.label }}"
 
       - name: Build VST3
         working-directory: cpp
@@ -137,14 +127,33 @@ jobs:
           echo "path=$AU" >> "$GITHUB_OUTPUT"
           echo "Found AU at: $AU"
 
-      - name: Verify code signature
+      - name: Sign macOS bundles
         if: runner.os == 'macOS'
         run: |
+          # Find the Developer ID Application certificate in the keychain
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "Using identity: $IDENTITY"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::No Developer ID Application certificate found in keychain"
+            security find-identity -v -p codesigning
+            exit 1
+          fi
+
+          echo "Signing VST3..."
+          codesign --force --deep --sign "$IDENTITY" \
+            --options runtime --timestamp \
+            "${{ steps.find_vst3.outputs.path }}"
+
+          echo "Signing AU..."
+          codesign --force --deep --sign "$IDENTITY" \
+            --options runtime --timestamp \
+            "${{ steps.find_au.outputs.path }}"
+
           echo "=== VST3 signature ==="
           codesign -dvv "${{ steps.find_vst3.outputs.path }}"
           echo ""
           echo "=== AU signature ==="
-          codesign -dvv "${{ steps.find_au.outputs.path }}" || true
+          codesign -dvv "${{ steps.find_au.outputs.path }}"
 
       - name: Package VST3
         shell: bash

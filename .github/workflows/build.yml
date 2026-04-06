@@ -67,9 +67,14 @@ jobs:
 
           # Re-encode the .p12 with modern encryption (AES-256) so that
           # security import can handle all identities on newer macOS.
+          # Use -legacy flag only if supported (OpenSSL 3.x).
           MODERN_P12=$RUNNER_TEMP/modern_certificate.p12
+          LEGACY_FLAG=""
+          if openssl pkcs12 -help 2>&1 | grep -q "\-legacy"; then
+            LEGACY_FLAG="-legacy"
+          fi
           openssl pkcs12 -in "$CERTIFICATE_PATH" -out "$RUNNER_TEMP/certs.pem" \
-            -passin pass:"$MACOS_CERTIFICATE_PWD" -passout pass:"$MACOS_CERTIFICATE_PWD" -legacy
+            -passin pass:"$MACOS_CERTIFICATE_PWD" -passout pass:"$MACOS_CERTIFICATE_PWD" $LEGACY_FLAG
           openssl pkcs12 -export -in "$RUNNER_TEMP/certs.pem" -out "$MODERN_P12" \
             -passin pass:"$MACOS_CERTIFICATE_PWD" -passout pass:"$MACOS_CERTIFICATE_PWD"
           rm "$RUNNER_TEMP/certs.pem"

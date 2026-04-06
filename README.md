@@ -6,7 +6,7 @@
 
 A monophonic vocal synthesizer that sounds like a monk chanting. Built using formant-wave-function (FOF) synthesis, inspired by the classic [Delay Lama](http://www.audionerdz.nl/) VST plugin by AudioNerdz (2002).
 
-**[Download the latest release](https://github.com/JonET/monksynth/releases)** — available for Windows and Linux. macOS coming soon.
+**[Download the latest release](https://github.com/JonET/monksynth/releases)** — available for Windows, macOS, and Linux.
 
 <img src="docs/screenshot1.png" alt="MonkSynth running in Ableton Live 12 with the classic Delay Lama skin" width="600">
 
@@ -23,7 +23,7 @@ A monophonic vocal synthesizer that sounds like a monk chanting. Built using for
 - Theme system with right-click context menu for custom skins
 - Import classic skin from the original Delay Lama DLL
 - 5 factory presets
-- VST3 plugin format (Windows, macOS, Linux)
+- VST3 plugin format (Windows, macOS, Linux) and Audio Unit (macOS)
 
 ## Building
 
@@ -41,6 +41,21 @@ cmake --build build --config Release --target MonkSynth
 ```
 
 The VST3 SDK is fetched automatically by CMake. The built plugin is placed in your system VST3 directory.
+
+### macOS Audio Unit
+
+To also build the AU plugin, install the [AudioUnit SDK](https://github.com/apple/AudioUnitSDK) and configure with:
+
+```bash
+cmake -B build -G Xcode -DSMTG_AUDIOUNIT_SDK_PATH=/path/to/AudioUnitSDK
+cmake --build build --config Release --target MonkSynth-au
+```
+
+## Installation
+
+- **macOS:** Run the `.pkg` installer — installs both VST3 and AU plugins
+- **Windows:** Run the `.exe` installer — installs the VST3 plugin
+- **Linux:** Extract and copy `MonkSynth.vst3` to `~/.vst3/`
 
 ## Repository Layout
 

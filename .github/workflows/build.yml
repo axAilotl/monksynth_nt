@@ -20,7 +20,7 @@ jobs:
             name: macOS
             cmake_flags: '-G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DSMTG_AUDIOUNIT_SDK_PATH=/tmp/AudioUnitSDK-AudioUnitSDK-1.1.0 -DSMTG_CODE_SIGN_IDENTITY_MAC="-"'
             artifact_name: MonkSynth-VST3-macOS
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             name: Linux
             cmake_flags: "-DCMAKE_BUILD_TYPE=Release"
             artifact_name: MonkSynth-VST3-Linux
@@ -39,7 +39,8 @@ jobs:
           sudo apt-get install -y libx11-dev libxcb1-dev libxcb-util-dev \
             libxcb-cursor-dev libxcb-keysyms1-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev \
-            libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libxcb-util0-dev
+            libcairo2-dev libgtkmm-3.0-dev libsqlite3-dev libxcb-util0-dev \
+            patchelf
 
       - name: Install AudioUnit SDK (macOS)
         if: runner.os == 'macOS'
@@ -145,6 +146,43 @@ jobs:
           AU=$(find cpp/build -name "MonkSynth.component" -type d | head -1)
           echo "path=$AU" >> "$GITHUB_OUTPUT"
           echo "Found AU at: $AU"
+
+      - name: Bundle Linux shared libraries
+        if: runner.os == 'Linux'
+        run: |
+          PLUGIN_SO="${{ steps.find_vst3.outputs.path }}/Contents/x86_64-linux/MonkSynth.so"
+          PLUGIN_DIR=$(dirname "$PLUGIN_SO")
+
+          # Collect shared libraries that aren't part of the base system.
+          # We keep: libc, libm, libdl, libpthread, librt, libgcc_s, libstdc++,
+          # ld-linux, and libX11/libxcb core (virtually always present).
+          # Everything else gets bundled.
+          SYSTEM_LIBS="linux-vdso|ld-linux|libc\.|libm\.|libdl\.|libpthread\.|librt\.|libgcc_s|libstdc\+\+"
+
+          echo "=== Dependencies before bundling ==="
+          ldd "$PLUGIN_SO"
+
+          # Copy non-system libs into the plugin directory
+          ldd "$PLUGIN_SO" | grep "=> /" | awk '{print $3}' | while read -r lib; do
+            name=$(basename "$lib")
+            # Skip core system libraries
+            if echo "$name" | grep -qE "^($SYSTEM_LIBS)"; then
+              echo "SKIP (system): $name"
+              continue
+            fi
+            echo "BUNDLE: $name"
+            cp "$lib" "$PLUGIN_DIR/$name"
+          done
+
+          # Set RPATH so the plugin finds bundled libs next to itself
+          patchelf --set-rpath '$ORIGIN' "$PLUGIN_SO"
+
+          echo ""
+          echo "=== Bundled libraries ==="
+          ls -la "$PLUGIN_DIR"/*.so* 2>/dev/null || echo "(none)"
+          echo ""
+          echo "=== RPATH ==="
+          patchelf --print-rpath "$PLUGIN_SO"
 
       - name: Sign macOS bundles
         if: runner.os == 'macOS'

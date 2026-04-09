@@ -4,6 +4,16 @@ All notable changes to MonkSynth will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0-beta.4] - 2026-04-08
+
+### Changed
+- Linux: statically link all GUI dependencies (cairo, pango, harfbuzz, fontconfig, freetype, glib, etc.) into the plugin binary — eliminates crashes caused by shared library conflicts with DAWs and other plugins
+- Linux: use DejaVu Sans font instead of Arial (not available on most Linux distros)
+- macOS: use Helvetica font instead of Arial
+
+### Removed
+- Linux: removed bundled .so files from .vst3 directory (no longer needed)
+
 ## [0.2.0-beta.3] - 2026-04-07
 
 ### Added
@@ -44,7 +54,8 @@ All notable changes to MonkSynth will be documented in this file.
 - 5 factory presets
 - CI/CD with cross-platform builds (Windows, macOS, Linux)
 
-[Unreleased]: https://github.com/JonET/monksynth/compare/v0.2.0-beta.3...HEAD
+[Unreleased]: https://github.com/JonET/monksynth/compare/v0.2.0-beta.4...HEAD
+[0.2.0-beta.4]: https://github.com/JonET/monksynth/compare/v0.2.0-beta.3...v0.2.0-beta.4
 [0.2.0-beta.3]: https://github.com/JonET/monksynth/compare/v0.2.0-beta.2...v0.2.0-beta.3
 [0.2.0-beta.2]: https://github.com/JonET/monksynth/compare/v0.0.1-beta.1...v0.2.0-beta.2
 [0.0.1-beta.1]: https://github.com/JonET/monksynth/releases/tag/v0.0.1-beta.1

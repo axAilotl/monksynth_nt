@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 4,
+  "manifest": {
+    "name": "MonkSynth",
+    "version": "0.0.6",
+    "type": "instrument",
+    "author": "MonkSynth contributors",
+    "description": ""
+  },
+  "requires": ["worklet-v3", "webview-ui", "webview-writes", "themeOverride"],
+  "parameters": [
+    {
+      "key": "glide",
+      "label": "Glide",
+      "group": "Voice",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "vowel",
+      "label": "Vowel",
+      "group": "Voice",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "voice",
+      "label": "Voice",
+      "group": "Voice",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "vibrato",
+      "label": "Vibrato",
+      "group": "Voice",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "step": 0.01
+    },
+    {
+      "key": "vibratoRate",
+      "label": "Vibrato Rate",
+      "group": "Voice",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "aspiration",
+      "label": "Aspiration",
+      "group": "Voice",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "attack",
+      "label": "Attack",
+      "group": "Envelope",
+      "min": 0,
+      "max": 2,
+      "default": 0,
+      "step": 0.005,
+      "unit": "s",
+      "displayDecimals": 3
+    },
+    {
+      "key": "decay",
+      "label": "Decay",
+      "group": "Envelope",
+      "min": 0,
+      "max": 2,
+      "default": 0,
+      "step": 0.005,
+      "unit": "s",
+      "displayDecimals": 3
+    },
+    {
+      "key": "sustain",
+      "label": "Sustain",
+      "group": "Envelope",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "step": 0.01
+    },
+    {
+      "key": "release",
+      "label": "Release",
+      "group": "Envelope",
+      "min": 0,
+      "max": 2,
+      "default": 0,
+      "step": 0.005,
+      "unit": "s",
+      "displayDecimals": 3
+    },
+    {
+      "key": "unison",
+      "label": "Unison",
+      "group": "Unison",
+      "min": 1,
+      "max": 10,
+      "default": 1,
+      "step": 1,
+      "displayDecimals": 0
+    },
+    {
+      "key": "detune",
+      "label": "Detune",
+      "group": "Unison",
+      "min": 0,
+      "max": 60,
+      "default": 0,
+      "step": 0.5,
+      "unit": "ct",
+      "displayDecimals": 1
+    },
+    {
+      "key": "voiceSpread",
+      "label": "Voice Spread",
+      "group": "Unison",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "step": 0.01
+    },
+    {
+      "key": "delayMix",
+      "label": "Delay",
+      "group": "Delay",
+      "min": 0,
+      "max": 1,
+      "default": 0.8,
+      "step": 0.01
+    },
+    {
+      "key": "delayRate",
+      "label": "Delay Rate",
+      "group": "Delay",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "level",
+      "label": "Level",
+      "group": "Output",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "step": 0.01
+    }
+  ],
+  "presets": [],
+  "dsp": {
+    "processorName": null,
+    "voices": 1,
+    "voiceStealing": "oldest",
+    "oscillators": [],
+    "samples": [],
+    "envelope": {
+      "attack": 0.001,
+      "decay": 0.01,
+      "sustain": 1,
+      "release": 0.2
+    },
+    "filter": null,
+    "worklet": {
+      "processorName": "monksynth-processor",
+      "numberOfInputs": 0,
+      "numberOfOutputs": 1,
+      "outputChannelCount": [2],
+      "initMessage": {
+        "mode": "monksynth-reference-ui",
+        "reference": "Delay Lama NT style default UI with hidden classic bitmap mode"
+      }
+    }
+  },
+  "ui": {
+    "layout": "flex",
+    "accentColor": "#e58a3a",
+    "minWidth": 420,
+    "minHeight": 590,
+    "themeOverride": {
+      "primary": "#e58a3a",
+      "primaryDim": "#7a3b16",
+      "primaryGlow": "rgba(229, 138, 58, 0.26)",
+      "bg": "#22100a",
+      "bgElevated": "#31170d",
+      "text": "#f7debb",
+      "textDim": "#d1aa83",
+      "border": "#5b2a16",
+      "scanline": "rgba(255, 168, 102, 0.04)"
+    },
+    "controls": [
+      {
+        "type": "webview",
+        "source": "web/index.html",
+        "width": 360,
+        "height": 510,
+        "forwardNotes": true,
+        "forwardParams": true,
+        "acceptsParamWrites": true,
+        "acceptsNotes": true
+      }
+    ]
+  }
+}

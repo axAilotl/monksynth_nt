@@ -14,8 +14,12 @@ Thumbs.db
 
 # C++ build output
 cpp/build/
+cpp/build-*/
 cpp/out/
 cpp/lib/
+
+# nanoTracker plugin output
+nanotracker/dist/
 
 # Installer output
 installer/*/Output/

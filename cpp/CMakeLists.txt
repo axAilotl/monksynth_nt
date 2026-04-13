@@ -12,6 +12,13 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(MONKSYNTH_BUILD_PLUGIN "Build VST3/AU plugin targets" ON)
+option(MONKSYNTH_BUILD_RENDERER "Build standalone WAV renderer for nanoTracker workflows" ON)
+
+if(NOT MONKSYNTH_BUILD_PLUGIN AND NOT MONKSYNTH_BUILD_RENDERER)
+    message(FATAL_ERROR "Enable at least one of MONKSYNTH_BUILD_PLUGIN or MONKSYNTH_BUILD_RENDERER.")
+endif()
+
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version")
     # VSTGUI uses deprecated wstring_convert; suppress the error on newer SDKs
@@ -22,35 +29,8 @@ endif()
 option(MONKSYNTH_STATIC_LINUX_DEPS "Statically link Linux GUI dependencies" OFF)
 set(MONKSYNTH_STATIC_PREFIX "" CACHE PATH "Install prefix for static dependencies")
 
-# --- Fetch VST3 SDK ---
-include(FetchContent)
-
-# Patch VSTGUI to support static linking of Linux GUI dependencies.
-# The patch adds a conditional block guarded by MONKSYNTH_STATIC_LINUX_DEPS,
-# so it is harmless on macOS/Windows where that option is never set.
-# We use cmake -E env to ensure cross-platform shell compatibility, and
-# check first whether the patch has already been applied.
-FetchContent_Declare(vst3sdk
-    GIT_REPOSITORY https://github.com/steinbergmedia/vst3sdk.git
-    GIT_TAG        v3.8.0_build_66
-    GIT_SHALLOW    TRUE
-    GIT_SUBMODULES_RECURSE TRUE
-    PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/patches/apply-patch.cmake"
-)
-set(SMTG_ENABLE_VSTGUI_SUPPORT ON CACHE BOOL "" FORCE)
-set(SMTG_ADD_VST3_PLUGINS_SAMPLES OFF CACHE BOOL "" FORCE)
-set(SMTG_ADD_VST3_HOSTING_SAMPLES OFF CACHE BOOL "" FORCE)
-set(SMTG_RUN_VST_VALIDATOR OFF CACHE BOOL "" FORCE)
-if(APPLE)
-    set(SMTG_ENABLE_AUV2_BUILDS ON CACHE BOOL "" FORCE)
-endif()
-if(MONKSYNTH_STATIC_LINUX_DEPS)
-    set(SMTG_ENABLE_WAYLAND_SUPPORT OFF CACHE BOOL "" FORCE)
-endif()
-FetchContent_MakeAvailable(vst3sdk)
-
-# Ensure dllmain.cpp is found by smtg_target_add_library_main
-set(public_sdk_SOURCE_DIR "${vst3sdk_SOURCE_DIR}/public.sdk")
+# --- DSP engine (plain C) ---
+set(DSP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dsp")
 
 # --- Version header ---
 set(MONKSYNTH_VERSION_LABEL "dev" CACHE STRING "Version label (e.g. beta.1, rc.1, release)")
@@ -69,85 +49,130 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/version.h"
 )
 
-# --- DSP engine (plain C) ---
-set(DSP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dsp")
-
-# --- VST3 Plugin ---
-smtg_add_vst3plugin(MonkSynth
-    src/plugin_cids.h
-    src/plugin_entry.cpp
-    src/processor.h
-    src/processor.cpp
-    src/controller.h
-    src/controller.cpp
-    src/monk_view.h
-    src/monk_view.cpp
-    src/xy_pad.h
-    src/xy_pad.cpp
-    src/theme_manager.h
-    src/theme_manager.cpp
-    src/dll_extractor.h
-    src/dll_extractor.cpp
-    src/setup_view.h
-    src/setup_view.cpp
-    src/info_view.h
-    src/info_view.cpp
-    src/info_button.h
-    src/info_button.cpp
-    src/open_url.h
-    src/open_url.cpp
-    src/stb_impl.c
-    ${DSP_DIR}/voice.c
-    ${DSP_DIR}/delay.c
-    ${DSP_DIR}/synth.c
-)
-
-target_include_directories(MonkSynth PRIVATE "${DSP_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(MonkSynth PRIVATE sdk vstgui_support)
-
-smtg_target_add_plugin_resources(MonkSynth
-    RESOURCES
-        resources/editor.uidesc
-        resources/monk-base.png
-        resources/monk-strip.png
-        resources/knob-left.png
-        resources/knob-right.png
-        resources/fader-down-large.png
-        resources/fader-down-sm.png
-        resources/fader-right-sm.png
-        resources/info.png
-)
-
-if(APPLE)
-    smtg_target_set_bundle(MonkSynth
-        BUNDLE_IDENTIFIER "com.monksynth.vst3"
-        COMPANY_NAME "MonkSynth"
+if(MONKSYNTH_BUILD_RENDERER)
+    add_executable(MonkSynthRender
+        src/sample_renderer.cpp
+        ${DSP_DIR}/voice.c
+        ${DSP_DIR}/delay.c
+        ${DSP_DIR}/synth.c
     )
+
+    target_include_directories(MonkSynthRender PRIVATE "${DSP_DIR}")
+    set_target_properties(MonkSynthRender PROPERTIES OUTPUT_NAME "monksynth-render")
+
+    if(UNIX)
+        target_link_libraries(MonkSynthRender PRIVATE m)
+    endif()
 endif()
 
-if(UNIX)
-    target_link_libraries(MonkSynth PRIVATE m)
-endif()
+if(MONKSYNTH_BUILD_PLUGIN)
+    # --- Fetch VST3 SDK ---
+    include(FetchContent)
 
-# Hide all symbols except VST3 entry points when statically linking on Linux.
-# This prevents bundled cairo/pango/glib symbols from conflicting with
-# other plugins or the host DAW.
-if(MONKSYNTH_STATIC_LINUX_DEPS)
-    target_link_options(MonkSynth PRIVATE
-        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/resources/linux-exports.map
+    # Patch VSTGUI to support static linking of Linux GUI dependencies.
+    # The patch adds a conditional block guarded by MONKSYNTH_STATIC_LINUX_DEPS,
+    # so it is harmless on macOS/Windows where that option is never set.
+    # We use cmake -E env to ensure cross-platform shell compatibility, and
+    # check first whether the patch has already been applied.
+    FetchContent_Declare(vst3sdk
+        GIT_REPOSITORY https://github.com/steinbergmedia/vst3sdk.git
+        GIT_TAG        v3.8.0_build_66
+        GIT_SHALLOW    TRUE
+        GIT_SUBMODULES_RECURSE TRUE
+        PATCH_COMMAND ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_SOURCE_DIR}/patches/apply-patch.cmake"
     )
-endif()
+    set(SMTG_ENABLE_VSTGUI_SUPPORT ON CACHE BOOL "" FORCE)
+    set(SMTG_ADD_VST3_PLUGINS_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SMTG_ADD_VST3_HOSTING_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SMTG_RUN_VST_VALIDATOR OFF CACHE BOOL "" FORCE)
+    if(APPLE)
+        set(SMTG_ENABLE_AUV2_BUILDS ON CACHE BOOL "" FORCE)
+    endif()
+    if(MONKSYNTH_STATIC_LINUX_DEPS)
+        set(SMTG_ENABLE_WAYLAND_SUPPORT OFF CACHE BOOL "" FORCE)
+    endif()
+    FetchContent_MakeAvailable(vst3sdk)
 
-# --- macOS Audio Unit wrapper ---
-if(APPLE AND SMTG_ENABLE_AUV2_BUILDS)
-    list(APPEND CMAKE_MODULE_PATH "${vst3sdk_SOURCE_DIR}/cmake/modules")
-    include(SMTG_AddVST3AuV2)
-    # AUv2 type codes: 'aumu' = instrument, 'aufx' = effect
-    # 4-char codes: subtype 'MkSy', manufacturer 'ODLC'
-    smtg_target_add_auv2(MonkSynth-au
-        BUNDLE_NAME "MonkSynth"
-        BUNDLE_IDENTIFIER "com.monksynth.audiounit"
-        INFO_PLIST_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/resources/au-info.plist"
-        VST3_PLUGIN_TARGET MonkSynth
+    # Ensure dllmain.cpp is found by smtg_target_add_library_main
+    set(public_sdk_SOURCE_DIR "${vst3sdk_SOURCE_DIR}/public.sdk")
+
+    # --- VST3 Plugin ---
+    smtg_add_vst3plugin(MonkSynth
+        src/plugin_cids.h
+        src/plugin_entry.cpp
+        src/processor.h
+        src/processor.cpp
+        src/controller.h
+        src/controller.cpp
+        src/monk_view.h
+        src/monk_view.cpp
+        src/xy_pad.h
+        src/xy_pad.cpp
+        src/theme_manager.h
+        src/theme_manager.cpp
+        src/dll_extractor.h
+        src/dll_extractor.cpp
+        src/setup_view.h
+        src/setup_view.cpp
+        src/info_view.h
+        src/info_view.cpp
+        src/info_button.h
+        src/info_button.cpp
+        src/open_url.h
+        src/open_url.cpp
+        src/stb_impl.c
+        ${DSP_DIR}/voice.c
+        ${DSP_DIR}/delay.c
+        ${DSP_DIR}/synth.c
     )
+
+    target_include_directories(MonkSynth PRIVATE "${DSP_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_link_libraries(MonkSynth PRIVATE sdk vstgui_support)
+
+    smtg_target_add_plugin_resources(MonkSynth
+        RESOURCES
+            resources/editor.uidesc
+            resources/monk-base.png
+            resources/monk-strip.png
+            resources/knob-left.png
+            resources/knob-right.png
+            resources/fader-down-large.png
+            resources/fader-down-sm.png
+            resources/fader-right-sm.png
+            resources/info.png
+    )
+
+    if(APPLE)
+        smtg_target_set_bundle(MonkSynth
+            BUNDLE_IDENTIFIER "com.monksynth.vst3"
+            COMPANY_NAME "MonkSynth"
+        )
+    endif()
+
+    if(UNIX)
+        target_link_libraries(MonkSynth PRIVATE m)
+    endif()
+
+    # Hide all symbols except VST3 entry points when statically linking on Linux.
+    # This prevents bundled cairo/pango/glib symbols from conflicting with
+    # other plugins or the host DAW.
+    if(MONKSYNTH_STATIC_LINUX_DEPS)
+        target_link_options(MonkSynth PRIVATE
+            -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/resources/linux-exports.map
+        )
+    endif()
+
+    # --- macOS Audio Unit wrapper ---
+    if(APPLE AND SMTG_ENABLE_AUV2_BUILDS)
+        list(APPEND CMAKE_MODULE_PATH "${vst3sdk_SOURCE_DIR}/cmake/modules")
+        include(SMTG_AddVST3AuV2)
+        # AUv2 type codes: 'aumu' = instrument, 'aufx' = effect
+        # 4-char codes: subtype 'MkSy', manufacturer 'ODLC'
+        smtg_target_add_auv2(MonkSynth-au
+            BUNDLE_NAME "MonkSynth"
+            BUNDLE_IDENTIFIER "com.monksynth.audiounit"
+            INFO_PLIST_TEMPLATE "${CMAKE_CURRENT_SOURCE_DIR}/resources/au-info.plist"
+            VST3_PLUGIN_TARGET MonkSynth
+        )
+    endif()
 endif()

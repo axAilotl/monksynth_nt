@@ -1,94 +1,36 @@
-# MonkSynth
+# MonkSynth NT
 
-[![Build](https://github.com/JonET/monksynth/actions/workflows/build.yml/badge.svg)](https://github.com/JonET/monksynth/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/JonET/monksynth?include_prereleases)](https://github.com/JonET/monksynth/releases)
-[![License](https://img.shields.io/github/license/JonET/monksynth)](LICENSE)
+This repo is a fork of [JonET/monksynth](https://github.com/JonET/monksynth) adapted to run as a native instrument plugin for [nanoTracker](https://federatedindustrial.com/tracker).
 
-A monophonic vocal synthesizer that sounds like a monk chanting. Built using formant-wave-function (FOF) synthesis, inspired by the classic [Delay Lama](http://www.audionerdz.nl/) VST plugin by AudioNerdz (2002).
+## Links
 
-**[Download the latest release](https://github.com/JonET/monksynth/releases)** — available for Windows, macOS, and Linux.
+- Original repo: <https://github.com/JonET/monksynth>
+- nanoTracker: <https://federatedindustrial.com/tracker>
+- nanoTracker API SDK: <https://github.com/savannah-i-g/nanotracker-api-sdk>
 
-<img src="docs/screenshot1.png" alt="MonkSynth running in Ableton Live 12 with the classic Delay Lama skin" width="600">
+## What This Repo Contains
 
-*MonkSynth v0.0.1-beta.1 in Ableton Live 12, with the classic skin imported from the original Delay Lama DLL*
+- `nanotracker/` — the nanoTracker plugin source
+- `dsp/` and `cpp/` — the upstream MonkSynth DSP and C++ code this fork was built from
 
-## Features
-
-- FOF synthesis engine producing realistic vocal formants
-- XY pad for real-time pitch and vowel control
-- Built-in stereo delay effect
-- MIDI support: note on/off, pitch bend (vowel), CC1 (vibrato), CC5 (glide), CC7 (volume), CC12 (delay), CC13 (voice)
-- ADSR envelope with configurable attack, decay, sustain, release
-- Unison mode with up to 10 detuned voices and voice spread
-- Theme system with right-click context menu for custom skins
-- Import classic skin from the original Delay Lama DLL
-- 5 factory presets
-- VST3 plugin format (Windows, macOS, Linux) and Audio Unit (macOS)
-
-## Building
-
-### Prerequisites
-
-- CMake 3.20+
-- C/C++ compiler (MSVC, GCC, or Clang)
-
-### Build
+## Build
 
 ```bash
-cd cpp
-cmake -B build
-cmake --build build --config Release --target MonkSynth
+python3 nanotracker/build_plugin.py
 ```
 
-The VST3 SDK is fetched automatically by CMake. The built plugin is placed in your system VST3 directory.
+This writes:
 
-### macOS Audio Unit
-
-To also build the AU plugin, install the [AudioUnit SDK](https://github.com/apple/AudioUnitSDK) and configure with:
-
-```bash
-cmake -B build -G Xcode -DSMTG_AUDIOUNIT_SDK_PATH=/path/to/AudioUnitSDK
-cmake --build build --config Release --target MonkSynth-au
+```text
+nanotracker/dist/MonkSynth.ntins
 ```
 
-## Installation
+## Load In nanoTracker
 
-- **macOS:** Run the `.pkg` installer — installs both VST3 and AU plugins
-- **Windows:** Run the `.exe` installer — installs the VST3 plugin
-- **Linux:** Extract and copy `MonkSynth.vst3` to `~/.vst3/`
-
-## Repository Layout
-
-```
-dsp/
-  voice.c, voice.h     FOF synthesis engine (formants, overlap-add grains)
-  delay.c, delay.h     Stereo delay with feedback
-  synth.c, synth.h     Public API: note stack, MIDI routing, gain staging
-cpp/
-  src/                  VST3 plugin shell (processor, controller, GUI)
-  resources/            VSTGUI editor description and placeholder assets
-  CMakeLists.txt        Build system (fetches VST3 SDK via FetchContent)
-presets/                VST3 factory preset files
-```
-
-## Themes
-
-MonkSynth ships without a built-in skin. On first launch, it shows a setup screen where you can import the classic look from the original Delay Lama DLL (available as freeware from [audionerdz.nl](http://www.audionerdz.nl/download.htm)).
-
-You can also load custom themes via right-click on the plugin GUI. A theme folder contains a `theme.json` manifest and any combination of these PNG files (missing ones fall back to 1x1 placeholders):
-
-- `background.png` — main background (360x510)
-- `monk-strip.png` — animation sprite sheet (5x6 grid, 311x311 frames)
-- `knob-left.png` / `knob-right.png` — rotary knob filmstrips (50x3000, 60 frames)
-- `fader-down-large.png` / `fader-down-sm.png` / `fader-right-sm.png` — fader handles
-- `info.png` — info overlay (253x275)
-
-## Acknowledgments
-
-- [Delay Lama](http://www.audionerdz.nl/) by AudioNerdz (2002) — the beloved freeware VST plugin that inspired this project
-- Xavier Rodet (IRCAM) — formant-wave-function (FOF) synthesis technique
-- [stb_image_write](https://github.com/nothings/stb) by Sean Barrett — single-header image writing (MIT / public domain)
-- [VST3 SDK](https://github.com/steinbergmedia/vst3sdk) by Steinberg — plugin framework (MIT)
+1. Open `PLG`.
+2. Click `+ LOAD PLUGIN (.ntins / .ntsfx)`.
+3. Choose `MonkSynth.ntins`.
+4. Click `+ ADD TO WS`.
 
 ## License
 

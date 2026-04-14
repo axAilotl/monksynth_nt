@@ -4,7 +4,8 @@ description: >
   Port or recreate native instruments and effects as reliable nanoTracker plugins. Use when the
   user wants to adapt an existing VST/AU/native plugin to nanoTracker, inspect a native binary,
   rebuild its parameter or UI contract, scaffold plugin.json/script.js/web/index.html/build_plugin.py,
-  or validate a nanoTracker plugin in the live host with real audio metering.
+  use the nanoTracker API SDK for automation or validation, or validate a nanoTracker plugin in
+  the live host with real audio metering.
 version: "1.0.0"
 ---
 
@@ -19,6 +20,20 @@ repo. It is not a generic “port any plugin magically” recipe. It is a discip
 - validating the result against the real host, not just local unit tests
 
 Use this skill when the user wants a reliable nanoTracker plugin, not a vague prototype.
+
+## External references
+
+- nanoTracker live app: <https://federatedindustrial.com/tracker>
+- nanoTracker API SDK: <https://github.com/savannah-i-g/nanotracker-api-sdk>
+
+Treat the SDK as part of the normal toolchain. It is useful for:
+
+- relay health checks
+- deterministic host-side automation
+- asset loading workflows
+- project mutation smoke tests
+
+It does not replace real live-host import and analyser validation.
 
 ## What nanoTracker plugins actually are
 
@@ -66,6 +81,7 @@ In this repo, those reference artifacts are:
 
 - `/mnt/ai/delay_lama/lol_lama/tools/DelayLamaInspector.cs`
 - `/mnt/ai/delay_lama/lol_lama/delay-lama-inspection.md`
+- `https://github.com/savannah-i-g/nanotracker-api-sdk`
 - [../../nanotracker/plugin.json](../../nanotracker/plugin.json)
 - [../../nanotracker/script.js](../../nanotracker/script.js)
 - [../../nanotracker/web/index.html](../../nanotracker/web/index.html)
@@ -462,6 +478,25 @@ In the real tracker:
 - verify silence when idle
 - verify audible output on note-on
 - verify no clip or click accumulation on sustained notes and retriggers
+
+### Use the SDK where it helps
+
+If the nanoTracker API SDK is available, use it to shorten the validation loop:
+
+- confirm relay health before blaming the plugin
+- script repeatable host-side setup
+- drive asset loading or project mutation tests
+
+Good SDK uses:
+
+- checking that the local relay is attached to a live page
+- loading rendered samples into a project
+- executing deterministic project commands during tests
+
+Bad SDK uses:
+
+- treating SDK success as proof that the packaged plugin UI is correct
+- skipping browser import and analyser checks because CLI calls worked
 
 ### Real audio metering
 

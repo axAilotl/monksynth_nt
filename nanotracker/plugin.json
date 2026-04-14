@@ -192,7 +192,7 @@
     "layout": "flex",
     "accentColor": "#e58a3a",
     "minWidth": 420,
-    "minHeight": 590,
+    "minHeight": 900,
     "themeOverride": {
       "primary": "#e58a3a",
       "primaryDim": "#7a3b16",
@@ -214,6 +214,50 @@
         "forwardParams": true,
         "acceptsParamWrites": true,
         "acceptsNotes": true
+      },
+      {
+        "type": "group",
+        "style": "row",
+        "label": "VOICE",
+        "children": [
+          { "type": "knob", "parameter": "glide",        "label": "GLIDE" },
+          { "type": "knob", "parameter": "vowel",        "label": "VOWEL" },
+          { "type": "knob", "parameter": "voice",        "label": "VOICE" },
+          { "type": "knob", "parameter": "vibrato",      "label": "VIB" },
+          { "type": "knob", "parameter": "vibratoRate",  "label": "V.RATE" },
+          { "type": "knob", "parameter": "aspiration",   "label": "ASP" }
+        ]
+      },
+      {
+        "type": "group",
+        "style": "row",
+        "label": "ENVELOPE",
+        "children": [
+          { "type": "knob", "parameter": "attack",  "label": "A" },
+          { "type": "knob", "parameter": "decay",   "label": "D" },
+          { "type": "knob", "parameter": "sustain", "label": "S" },
+          { "type": "knob", "parameter": "release", "label": "R" }
+        ]
+      },
+      {
+        "type": "group",
+        "style": "row",
+        "label": "UNISON",
+        "children": [
+          { "type": "knob", "parameter": "unison",      "label": "VOICES" },
+          { "type": "knob", "parameter": "detune",      "label": "DETUNE" },
+          { "type": "knob", "parameter": "voiceSpread", "label": "SPREAD" }
+        ]
+      },
+      {
+        "type": "group",
+        "style": "row",
+        "label": "OUTPUT",
+        "children": [
+          { "type": "knob", "parameter": "delayMix",  "label": "DELAY" },
+          { "type": "knob", "parameter": "delayRate", "label": "D.RATE" },
+          { "type": "knob", "parameter": "level",     "label": "LEVEL" }
+        ]
       }
     ]
   }

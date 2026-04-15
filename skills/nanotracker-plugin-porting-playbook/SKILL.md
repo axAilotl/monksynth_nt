@@ -6,18 +6,21 @@ description: >
   rebuild its parameter or UI contract, scaffold plugin.json/script.js/web/index.html/build_plugin.py,
   use the nanoTracker API SDK for automation or validation, or validate a nanoTracker plugin in
   the live host with real audio metering.
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # nanoTracker Plugin Porting Playbook
 
-This skill captures the process that worked for the MonkSynth and Delay Lama NT ports in this
-repo. It is not a generic “port any plugin magically” recipe. It is a disciplined workflow for:
+This skill captures the process that worked for the MonkSynth, Delay Lama, and CamelCrusher NT
+porting work in this repo. It is not a generic “port any plugin magically” recipe. It is a
+disciplined workflow for:
 
 - extracting the original plugin's external contract
+- pinning the current nanoTracker host loader contract
 - deciding whether a nanoTracker port is actually feasible
 - rebuilding that contract in nanoTracker's browser/worklet model
 - validating the result against the real host, not just local unit tests
+- measuring binary-only recreations against the original instead of guessing by ear
 
 Use this skill when the user wants a reliable nanoTracker plugin, not a vague prototype.
 
@@ -25,6 +28,8 @@ Use this skill when the user wants a reliable nanoTracker plugin, not a vague pr
 
 - nanoTracker live app: <https://federatedindustrial.com/tracker>
 - nanoTracker API SDK: <https://github.com/savannah-i-g/nanotracker-api-sdk>
+- FX manifest notes: `references/fx-manifest-v4.md`
+- Characterization workflow: `references/characterization.md`
 
 Treat the SDK as part of the normal toolchain. It is useful for:
 
@@ -34,6 +39,29 @@ Treat the SDK as part of the normal toolchain. It is useful for:
 - project mutation smoke tests
 
 It does not replace real live-host import and analyser validation.
+
+## Phase 0: Pin the live host contract
+
+Before debugging DSP or UI, verify what the current host actually expects.
+
+- Treat the live tracker bundle or a freshly validated current plugin as the source of truth.
+- Use old examples only as hints, not as proof that the current host still accepts the same shape.
+- If a packaged plugin fails to load with no visible error, debug the manifest and host loader
+  contract before touching DSP.
+
+What to verify first:
+
+- schema version in use
+- whether the host treats `manifest.type = "fx"` as a pedal-style plugin
+- required `requires` flags for the current host
+- whether the host expects explicit ports for the plugin type
+- whether the host instantiates worklets by graph node id or another identifier
+
+If the host contract is unclear:
+
+- inspect the current live tracker bundle
+- inspect a known-good current plugin from the same host generation
+- write down the findings immediately in a short note
 
 ## What nanoTracker plugins actually are
 
@@ -64,6 +92,10 @@ If you skip this decision, the rest of the port will be garbage.
 - Always test the packaged `.ntins` or `.ntsfx` in the live tracker.
 - Always version-bump before re-importing into nanoTracker; host caching is real.
 - Prefer a functional controller first, visual clone second.
+- For binary-only recreations, build the inspector and characterization harness before tuning the
+  `AudioWorklet`.
+- Do not call a port `exact`, `faithful`, or `1:1` unless measured comparison against the original
+  and live-host validation both pass.
 
 ## Deliverables
 
@@ -75,6 +107,9 @@ A complete port should leave behind these artifacts:
 - a webview UI
 - a deterministic packer that emits the plugin archive
 - a repeatable verification routine
+- an original-plugin characterization artifact for binary-only recreations
+- a worklet-vs-reference comparison artifact when characterization exists
+- a short note listing remaining deltas and unverified claims
 - a release-ready packaged plugin
 
 In this repo, those reference artifacts are:
@@ -201,7 +236,55 @@ Recommended sections:
 - observed UI behavior
 - reproduction caveats
 
-## Phase 3: Capture UI behavior separately from graphics
+## Phase 3: Build the inspector and characterization harness first
+
+This phase is mandatory for binary-only recreations. Do not start tuning the JS worklet by ear
+until you can inspect and measure the original.
+
+### Inspector requirements
+
+Build or adapt a host-side inspector that can extract:
+
+- metadata
+- parameter names
+- display strings and units
+- stepped vs. continuous behavior
+- preset/program names
+- bank or chunk-loaded factory preset data when available
+- input and output channel shape
+
+The output must be written to a stable artifact, not left in console logs.
+
+### Characterization requirements
+
+For binary-only recreations, render probe signals through the original plugin before tuning the
+worklet.
+
+Minimum probe set:
+
+- impulse
+- log sweeps at multiple levels
+- stepped sines
+- transient trains
+- at least one realistic program-material probe such as bass, drums, or vocals
+
+Minimum scenario set:
+
+- bypass
+- each major module isolated
+- at least one hot combined-chain scenario
+- wet/dry or output-stage coverage when the plugin exposes it
+
+Required outputs:
+
+- machine-readable summary of peak, RMS, DC offset, and clipped-sample counts
+- rendered examples when practical
+- a short note summarizing what the original actually does
+
+Reference:
+`references/characterization.md`
+
+## Phase 4: Capture UI behavior separately from graphics
 
 Agents often fail here by confusing “the panel image” with “the interface.”
 
@@ -255,7 +338,7 @@ Capture behavior, not just frames:
 
 If you have a sprite sheet, you still need the sequencing logic.
 
-## Phase 4: Scaffold the nanoTracker plugin
+## Phase 5: Scaffold the nanoTracker plugin
 
 Create the smallest possible working plugin shape before polishing anything.
 
@@ -268,24 +351,41 @@ Create the smallest possible working plugin shape before polishing anything.
 
 ### Manifest structure
 
-Use schema v4 when you need:
-
-- worklet DSP
-- custom webview UI
-- parameter writes from the UI
-- forwarded note events
+Use schema v4 for current browser/worklet plugins, but pin the exact host contract first.
 
 Reference:
 [../../nanotracker/plugin.json](../../nanotracker/plugin.json)
 
-Key fields to decide correctly:
+#### Instrument ports
 
-- `manifest.type`: `instrument` or `fx`
+For instruments, decide correctly:
+
+- `manifest.type = "instrument"`
 - `requires`
-- `parameters`
-- `dsp.worklet.processorName`
-- `ui.controls[].type = webview`
-- `forwardNotes`
+- note forwarding and note acceptance fields
+- parameter forwarding and write acceptance fields
+- worklet registration and note-event handling
+
+#### FX ports
+
+For effects, do not assume old examples still match the current host.
+
+Current host findings are captured in `references/fx-manifest-v4.md`. In practice, verify:
+
+- whether `manifest.type = "fx"` is loaded as a pedal-style plugin
+- whether `pedal-v4` is required
+- whether `portsV4` is required when a `ports` block is present
+- whether explicit `ports.inputs[]` and `ports.outputs[]` are required
+- whether the effect should use the graph-style `dsp` layout
+- whether the registered processor name must match the graph node id the host instantiates
+
+For current v4 FX work, explicitly validate:
+
+- `manifest.type`
+- `requires`
+- `ports`
+- `dsp`
+- `ui.controls[].type = "webview"`
 - `forwardParams`
 - `acceptsParamWrites`
 - `acceptsNotes`
@@ -297,7 +397,7 @@ Key fields to decide correctly:
 - Use human-readable labels and correct display units.
 - Keep defaults aligned with the original startup preset or startup state.
 
-## Phase 5: Implement the worklet first for correctness
+## Phase 6: Implement the worklet first for correctness
 
 The worklet is where reliability goes to die if you are sloppy.
 
@@ -356,7 +456,7 @@ Only after that should you layer in:
 - envelope nuance
 - clone behavior
 
-## Phase 6: Build the webview as a controller, not a poster
+## Phase 7: Build the webview as a controller, not a poster
 
 The webview should be functional before it is visually perfect.
 
@@ -391,7 +491,7 @@ Once the sound and host contract are stable:
 Reference:
 [../../nanotracker/web/index.html](../../nanotracker/web/index.html)
 
-## Phase 7: Build a deterministic packer
+## Phase 8: Build a deterministic packer
 
 Do not hand-assemble `.ntins` archives.
 
@@ -409,7 +509,7 @@ This is especially useful when:
 - multiple versions need quick rebuilds
 - you want repeatable release packaging
 
-## Phase 8: Validate locally before live import
+## Phase 9: Validate locally before live import
 
 Use a layered test order.
 
@@ -418,6 +518,7 @@ Use a layered test order.
 - syntax-check the extracted webview script
 - syntax-check the worklet script
 - verify the packer runs
+- open the built archive and verify `plugin.json`, `script.js`, and `web/index.html` are present
 
 Typical commands from this repo:
 
@@ -450,7 +551,23 @@ An offline harness is useful for:
 
 It is not enough for sign-off.
 
-## Phase 9: Validate in the live host
+When characterization exists, local validation should also include:
+
+- measuring the worklet against the same signal/scenario grid
+- listing the closest matches
+- listing the largest remaining misses
+- refusing to tune by ear alone once reference data exists
+
+For FX plugins, local validation should explicitly cover:
+
+- stereo input/output routing
+- bypass behavior
+- wet/dry law
+- silence with no input
+- module-isolated behavior
+- transient handling, not just steady-state sweeps
+
+## Phase 10: Validate in the live host
 
 This is the part agents skip when they want to declare victory too early.
 
@@ -478,6 +595,23 @@ In the real tracker:
 - verify silence when idle
 - verify audible output on note-on
 - verify no clip or click accumulation on sustained notes and retriggers
+
+For FX plugins, also verify:
+
+- real audio input reaches both expected channels
+- wet/dry response is sane across the full range
+- bypass or module-off states do what the original does
+- transient handling and limiter behavior under hot input
+
+### Silent-load debug checklist
+
+When a plugin does not load and the host shows no useful error:
+
+- bump the plugin version before every import attempt
+- remove the old import or reload the tracker page if the host caches by version
+- inspect the built archive contents
+- compare the manifest shape to the current host contract
+- prove the loader contract first, then debug DSP
 
 ### Use the SDK where it helps
 
@@ -518,7 +652,7 @@ host path.
 If you re-import the same version number, the host may hand you stale code. Always bump the plugin
 version before retesting imported builds.
 
-## Phase 10: Reliability gates
+## Phase 11: Reliability gates
 
 A nanoTracker port is not done until all of these pass:
 
@@ -532,6 +666,7 @@ A nanoTracker port is not done until all of these pass:
 - repeated retriggers do not accumulate clicks
 - release tails decay instead of sticking
 - no fresh console or worklet errors appear in the clean run
+- comparison artifacts support any fidelity claims being made
 
 If any one of those fails, you are still in implementation, not polish.
 
@@ -554,12 +689,16 @@ In that case:
 Avoid these failure modes:
 
 - assuming a Windows DLL can be loaded from an `AudioWorklet`
+- using stale manifest examples against a newer host loader
 - treating screenshots as sufficient UI spec
 - cloning visuals before control behavior exists
+- tuning DSP before the plugin loads at all
+- tuning a binary-only recreation by ear after characterization data already exists
 - adding advanced synthesis features before the core note path is stable
 - skipping version bumps and then debugging stale cache artifacts
 - trusting synthetic clicks to unlock browser audio when real input is required
 - declaring success without live import and host metering
+- calling a recreation exact without measured evidence
 
 ## Agent execution template
 
@@ -581,26 +720,33 @@ Goal: build a reliable nanoTracker port of <plugin>.
    - I/O shape
    - UI controls and geometry
 
-3. Scaffold:
+3. For binary-only recreations, build:
+   - a native inspector
+   - an original-plugin characterization harness
+   - a machine-readable reference summary
+
+4. Scaffold:
    - plugin.json
    - script.js
    - web/index.html
    - build_plugin.py
 
-4. Implement the smallest working sound path first.
+5. Implement the smallest working sound path first.
 
-5. Harden the DSP:
+6. Harden the DSP:
    - clamp params
    - sanitize non-finite values
    - guard circular buffers
    - force idle silence
 
-6. Validate locally:
+7. Validate locally:
    - syntax checks
    - packer build
    - offline stress harness
+   - archive content check
+   - comparison against the original when characterization exists
 
-7. Validate in live nanoTracker:
+8. Validate in live nanoTracker:
    - import packaged plugin
    - add to workspace
    - verify UI sizing
@@ -608,7 +754,7 @@ Goal: build a reliable nanoTracker port of <plugin>.
    - meter master output
    - prove no click accumulation
 
-8. Do not claim success until live host validation passes.
+9. Do not claim exact fidelity unless both measured comparison and live host validation support it.
 ```
 
 ## What this skill should produce in practice
